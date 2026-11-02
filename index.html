@@ -5,16 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Matrimonial Profile PDF Generator (Mobile Responsive)</title>
     <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="vendor/tailwind.js"></script>
     <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="vendor/fontawesome.css">
     <!-- html2canvas and jsPDF for Direct PDF Generation -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="vendor/html2canvas.min.js"></script>
+    <script src="vendor/jspdf.umd.min.js"></script>
     <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="vendor/plusjakarta.css">
 
     <style>
         :root {
@@ -147,6 +145,14 @@
             .pdf-page-3 {
                 page-break-after: avoid !important;
             }
+
+            .pdf-page.hidden {
+                display: none !important;
+            }
+
+            #pdfPage4:not(.hidden) {
+                page-break-after: avoid !important;
+            }
         }
     </style>
 </head>
@@ -185,8 +191,36 @@
                 <button id="btnZoom60" onclick="setScale(0.60)" class="px-2 py-1 rounded text-slate-400 hover:text-white hidden sm:block">60%</button>
             </div>
 
+            <!-- Draft actions: save .json / load .json (photos excluded) -->
+            <div class="relative" id="draftMenuWrap">
+                <div class="flex items-stretch rounded-lg overflow-hidden border border-slate-600 shadow-sm">
+                    <button id="saveDraftBtn" type="button" onclick="saveDraft()" title="Download a .json draft of all text details (photos are not saved)" class="bg-slate-700 hover:bg-slate-600 active:bg-slate-500 text-white font-bold px-2.5 md:px-3.5 py-1.5 md:py-2 text-xs md:text-sm flex items-center justify-center space-x-1.5 transition">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span class="hidden sm:inline">Save Draft</span>
+                    </button>
+                    <button type="button" onclick="toggleDraftMenu(event)" title="Draft options" class="bg-slate-700 hover:bg-slate-600 text-white px-1.5 md:px-2 border-l border-slate-600 transition">
+                        <i class="fa-solid fa-caret-down text-[10px]"></i>
+                    </button>
+                </div>
+                <div id="draftMenu" class="hidden absolute right-0 mt-2 w-60 bg-slate-800 border border-slate-600 rounded-xl shadow-2xl py-1.5 z-50 text-xs">
+                    <button type="button" onclick="saveDraft(); closeDraftMenu();" class="w-full text-left px-3 py-2 text-slate-200 hover:bg-slate-700 flex items-center space-x-2">
+                        <i class="fa-solid fa-file-arrow-down text-emerald-400 w-4"></i><span>Save draft as .json</span>
+                    </button>
+                    <button type="button" onclick="openDraftFile(); closeDraftMenu();" class="w-full text-left px-3 py-2 text-slate-200 hover:bg-slate-700 flex items-center space-x-2">
+                        <i class="fa-solid fa-folder-open text-sky-400 w-4"></i><span>Load draft from file…</span>
+                    </button>
+                    <div class="border-t border-slate-700 my-1"></div>
+                    <button type="button" onclick="restoreBrowserDraft(true); closeDraftMenu();" class="w-full text-left px-3 py-2 text-slate-300 hover:bg-slate-700 flex items-center space-x-2">
+                        <i class="fa-solid fa-clock-rotate-left text-slate-400 w-4"></i><span>Restore browser backup</span>
+                    </button>
+                    <button type="button" onclick="deleteDraft(); closeDraftMenu();" class="w-full text-left px-3 py-2 text-red-400 hover:bg-slate-700 flex items-center space-x-2">
+                        <i class="fa-solid fa-trash-can w-4"></i><span>Clear browser backup</span>
+                    </button>
+                </div>
+            </div>
+
             <!-- Direct PDF Action Button -->
-            <button id="generatePdfBtn" onclick="generateDirectPDF()" class="flex-1 md:flex-initial bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold px-3 md:px-5 py-1.5 md:py-2 rounded-lg text-xs md:text-sm flex items-center justify-center space-x-1.5 transition shadow-lg shadow-red-600/30">
+            <button id="generatePdfBtn" onclick="generateDirectPDF()" class="flex-1 md:flex-initial whitespace-nowrap bg-red-600 hover:bg-red-700 active:bg-red-800 text-white font-bold px-3 md:px-5 py-1.5 md:py-2 rounded-lg text-xs md:text-sm flex items-center justify-center space-x-1.5 transition shadow-lg shadow-red-600/30">
                 <i class="fa-solid fa-download"></i>
                 <span>Generate PDF</span>
             </button>
@@ -224,6 +258,15 @@
                 <button type="button" onclick="clearAllData()" class="bg-slate-700 hover:bg-slate-600 text-slate-300 font-semibold py-2.5 px-3 rounded-lg text-xs transition">
                     Clear
                 </button>
+            </div>
+
+            <!-- Draft status / quick actions -->
+            <div id="draftStatus" class="hidden mb-6 -mt-3 text-[10px] text-slate-400 bg-slate-900/60 border border-slate-700/60 rounded-lg px-3 py-2 flex flex-col gap-2">
+                <span id="draftStatusText" class="flex items-center space-x-1.5"><i class="fa-solid fa-floppy-disk text-slate-500"></i><span>No file loaded · drafts save as .json</span></span>
+                <span class="flex items-center space-x-3 shrink-0">
+                    <button type="button" onclick="openDraftFile()" class="text-sky-400 hover:underline font-semibold flex items-center space-x-1"><i class="fa-solid fa-folder-open"></i><span>Load .json</span></button>
+                    <button type="button" onclick="saveDraft()" class="text-emerald-400 hover:underline font-semibold flex items-center space-x-1"><i class="fa-solid fa-download"></i><span>Save .json</span></button>
+                </span>
             </div>
 
             <form id="editorForm" class="space-y-6 text-xs" onsubmit="event.preventDefault();" style="margin-bottom: 100px;">
@@ -317,8 +360,8 @@
                         <input type="text" data-bind="workLocation" value="" placeholder="e.g. Bengaluru, Karnataka" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
                     </div>
                     <div>
-                        <label class="text-slate-400">Annual Income</label>
-                        <input type="text" data-bind="annualIncome" value="" placeholder="e.g. ₹ 18 - 22 Lakhs Per Annum" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
+                        <label class="text-slate-400">Monthly Income</label>
+                        <input type="text" data-bind="monthlyIncome" value="" placeholder="e.g. ₹ 80,000 - 1,20,000 per month" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
                     </div>
                 </div>
 
@@ -512,25 +555,28 @@
                         <input type="text" data-bind="partnerLocation" value="" placeholder="e.g. Metro Cities" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
                     </div>
                     <div>
-                        <label class="text-slate-400">Willing to Relocate</label>
-                        <select data-bind="willingToRelocate" onchange="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
-                            <option value="">-- Select --</option>
-                            <option value="Yes">Yes</option>
-                            <option value="No">No</option>
-                        </select>
+                        <label class="text-slate-400">Extra Details</label>
+                        <input type="text" data-bind="extraDetails" value="" placeholder="e.g. Family-oriented, loves travelling, owns a house" oninput="updateBind(this)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white text-xs outline-none focus:border-red-500">
                     </div>
                 </div>
 
                 <!-- 7. FULL SCREEN PHOTO PAGE -->
                 <div class="space-y-3 bg-slate-900/40 p-3 rounded-xl border border-slate-700/50">
-                    <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-1 text-xs uppercase tracking-wide">7. Full Screen Photo (Page 3)</h3>
+                    <h3 class="font-bold text-slate-200 border-b border-slate-700 pb-1 text-xs uppercase tracking-wide">7. Full Screen Photos (Page 3 &amp; 4)</h3>
                     <div>
-                        <label class="text-slate-400">Upload Full Screen Image</label>
-                        <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto(event)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none cursor-pointer text-xs">
+                        <label class="text-slate-400">Photo 1 — Full Screen Image (Page 3)</label>
+                        <input type="file" id="photoInput" accept="image/*" onchange="previewPhoto(event, 1)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none cursor-pointer text-xs">
+                        <button type="button" onclick="removePhoto(1)" class="mt-1 text-[10px] text-slate-400 hover:text-red-400 underline underline-offset-2">Remove photo 1</button>
+                    </div>
+                    <div>
+                        <label class="text-slate-400">Photo 2 — Optional (Page 4)</label>
+                        <input type="file" id="photoInput2" accept="image/*" onchange="previewPhoto(event, 2)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none cursor-pointer text-xs">
+                        <p class="text-[10px] text-slate-500 mt-1 leading-snug">Page 4 is added to the preview &amp; PDF only when this photo is uploaded.</p>
+                        <button type="button" onclick="removePhoto(2)" class="mt-1 text-[10px] text-slate-400 hover:text-red-400 underline underline-offset-2">Remove photo 2</button>
                     </div>
                     <div>
                         <label class="text-slate-400">Photo Fit Mode</label>
-                        <select onchange="changePhotoFit(this.value)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none cursor-pointer text-xs">
+                        <select id="photoFitSelect" onchange="changePhotoFit(this.value)" class="w-full mt-1 bg-slate-900 border border-slate-700 rounded p-2 text-white outline-none cursor-pointer text-xs">
                             <option value="cover">Crop to Fit (Cover Screen)</option>
                             <option value="contain">Entire Photo (Contain)</option>
                         </select>
@@ -635,8 +681,8 @@
                                     <td class="info-value" id="view-workLocation"></td>
                                 </tr>
                                 <tr>
-                                    <td class="info-label">Annual Income:</td>
-                                    <td class="info-value" id="view-annualIncome"></td>
+                                    <td class="info-label">Monthly Income:</td>
+                                    <td class="info-value" id="view-monthlyIncome"></td>
                                 </tr>
                             </table>
                         </div>
@@ -776,8 +822,8 @@
                                         <td class="info-value" id="view-partnerLocation"></td>
                                     </tr>
                                     <tr>
-                                        <td class="info-label">Willing to Relocate:</td>
-                                        <td class="info-value" id="view-willingToRelocate"></td>
+                                        <td class="info-label">Extra Details:</td>
+                                        <td class="info-value" id="view-extraDetails"></td>
                                     </tr>
                                 </table>
                             </div>
@@ -804,10 +850,24 @@
                     </div>
                 </div>
 
+                <!-- PAGE 4: OPTIONAL 2nd FULL SCREEN PHOTO (1080px x 1920px) -->
+                <div class="pdf-page hidden" id="pdfPage4">
+                    <div class="relative w-full h-full bg-slate-900 overflow-hidden flex items-center justify-center">
+                        <div id="view-fullPhoto2" class="w-full h-full" style="background-size: cover; background-position: center; background-repeat: no-repeat;"></div>
+                        <!-- Bottom Gradient Overlay with Name -->
+                        <div class="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent p-16 text-white text-center">
+                            <h2 class="text-6xl font-extrabold mb-3 tracking-wide" id="view-fullName-photo2"></h2>
+                        </div>
+                    </div>
+                </div>
+
             </div>
 
         </main>
     </div>
+
+    <!-- Toast notifications -->
+    <div id="toastBox" class="no-print fixed bottom-4 left-1/2 -translate-x-1/2 z-[60] flex flex-col items-center space-y-2 pointer-events-none"></div>
 
     <script>
         function updateBind(input) {
@@ -818,6 +878,12 @@
             targets.forEach(el => {
                 el.innerText = val;
             });
+
+            // Keep the optional Page 4 name overlay in sync
+            if (key === 'fullName') {
+                const namePhoto2 = document.getElementById('view-fullName-photo2');
+                if (namePhoto2) namePhoto2.innerText = val;
+            }
 
             // Format DOB and Age together cleanly if age is present
             if (key === 'dob' || key === 'age') {
@@ -869,6 +935,10 @@
                 imgEl.src = '';
                 imgEl.classList.add('hidden');
             }
+
+            // Reset uploaded photos (photo 2 also removes page 4)
+            removePhoto(1);
+            removePhoto(2);
         }
 
         function fillDummyData() {
@@ -888,7 +958,7 @@
                 occupationSpecify: "Senior UX Designer / Specialist",
                 companyName: "Adobe Systems",
                 workLocation: "Bengaluru, Karnataka",
-                annualIncome: "₹ 18 - 22 Lakhs Per Annum",
+                monthlyIncome: "₹ 90,000 Per Month",
                 fatherOccupation: "Retired Government Officer",
                 motherOccupation: "Homemaker",
                 siblings: "1 Sister (Married), 1 Brother (Unmarried)",
@@ -912,7 +982,7 @@
                 partnerOccupation: "Working Professional",
                 preferredEducation: "Graduate / Post-Graduate",
                 partnerLocation: "Metro Cities (Bengaluru, Delhi NCR, Mumbai)",
-                willingToRelocate: "Yes"
+                extraDetails: "Family-oriented, music lover, owns a house in Jaipur"
             };
 
             Object.keys(dummyData).forEach(key => {
@@ -922,39 +992,335 @@
                     updateBind(input);
                 }
             });
+            scheduleAutosave();
         }
 
-        // Photo Upload & Fit Mode
-        function previewPhoto(event) {
+        // Photo Upload & Fit Mode (supports Photo 1 -> Page 3 and Photo 2 -> optional Page 4)
+        const PLACEHOLDER_PHOTO = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1080' height='1920' viewBox='0 0 1080 1920'><rect width='100%' height='100%' fill='%231e293b'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='48' fill='%23ffffff'>Upload Full Screen Photo</text></svg>";
+        const photoState = { 1: null, 2: null };
+        let photoFitMode = 'cover';
+
+        function previewPhoto(event, photoNo) {
+            photoNo = photoNo || 1;
             const file = event.target.files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    const photoEl = document.getElementById('view-fullPhoto');
-                    if (photoEl.tagName === 'IMG') {
-                        photoEl.src = e.target.result;
-                    } else {
-                        photoEl.style.backgroundImage = `url("${e.target.result}")`;
-                    }
-                };
-                reader.readAsDataURL(file);
+            if (!file) {
+                removePhoto(photoNo);
+                return;
             }
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                photoState[photoNo] = e.target.result;
+                renderPhoto(photoNo);
+                syncPage4();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function renderPhoto(photoNo) {
+            const photoEl = document.getElementById(photoNo === 2 ? 'view-fullPhoto2' : 'view-fullPhoto');
+            if (!photoEl) return;
+            const data = photoState[photoNo];
+
+            if (data) {
+                photoEl.style.backgroundImage = `url("${data}")`;
+                photoEl.style.backgroundSize = photoFitMode === 'contain' ? 'contain' : 'cover';
+                if (photoEl.tagName === 'IMG') photoEl.src = data;
+            } else if (photoNo === 1) {
+                photoEl.style.backgroundImage = `url("${PLACEHOLDER_PHOTO}")`;
+                photoEl.style.backgroundSize = 'cover';
+            } else {
+                photoEl.style.backgroundImage = 'none';
+            }
+        }
+
+        function removePhoto(photoNo) {
+            photoState[photoNo] = null;
+            const input = document.getElementById(photoNo === 2 ? 'photoInput2' : 'photoInput');
+            if (input) input.value = '';
+            renderPhoto(photoNo);
+            syncPage4();
+        }
+
+        // Page 4 only exists in the preview & PDF when photo 2 is uploaded
+        function syncPage4() {
+            const page4 = document.getElementById('pdfPage4');
+            if (!page4) return;
+            const hasPhoto2 = !!photoState[2];
+            page4.classList.toggle('hidden', !hasPhoto2);
+            page4.style.display = hasPhoto2 ? 'block' : 'none';
+            // PDF: drop the trailing blank page shortcut only matters for printing
+            const page3 = document.getElementById('pdfPage3');
+            if (page3) page3.classList.toggle('pdf-page-3', !hasPhoto2);
         }
 
         function changePhotoFit(mode) {
-            const photoEl = document.getElementById('view-fullPhoto');
-            if (photoEl.tagName === 'IMG') {
-                if (mode === 'contain') {
-                    photoEl.classList.remove('object-cover');
-                    photoEl.classList.add('object-contain');
-                } else {
-                    photoEl.classList.remove('object-contain');
-                    photoEl.classList.add('object-cover');
-                }
-            } else {
-                photoEl.style.backgroundSize = mode === 'contain' ? 'contain' : 'cover';
+            photoFitMode = mode;
+            renderPhoto(1);
+            renderPhoto(2);
+        }
+
+        // ========================= DRAFT SAVE / LOAD (JSON FILE) =========================
+        // A draft is a small .json file holding every text field + theme + photo fit mode.
+        // Uploaded photos and the logo are intentionally NOT included (keeps file tiny).
+        // JSON round-trips commas, currency symbols, empty cells and numbers safely.
+        const DRAFT_KEY = 'matrimonialProfileDraft.v1'; // legacy browser draft (auto-migrated)
+
+        function showToast(message, type) {
+            const box = document.getElementById('toastBox');
+            if (!box) return;
+            const colors = type === 'error' ? 'bg-red-600' : (type === 'info' ? 'bg-slate-700' : 'bg-emerald-600');
+            const icon = type === 'error' ? 'fa-circle-exclamation' : (type === 'info' ? 'fa-circle-info' : 'fa-circle-check');
+            const el = document.createElement('div');
+            el.className = `${colors} text-white text-xs font-semibold px-4 py-2.5 rounded-lg shadow-xl flex items-center space-x-2 transition-all duration-300 opacity-0 translate-y-2`;
+            el.innerHTML = `<i class="fa-solid ${icon}"></i><span>${message}</span>`;
+            box.appendChild(el);
+            requestAnimationFrame(() => el.classList.remove('opacity-0', 'translate-y-2'));
+            setTimeout(() => {
+                el.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => el.remove(), 300);
+            }, 2600);
+        }
+
+        function collectDraft() {
+            const data = {};
+            document.querySelectorAll('[data-bind]').forEach(input => {
+                data[input.getAttribute('data-bind')] = input.value;
+            });
+            return {
+                app: 'matrimonial-profile-generator',
+                version: 1,
+                savedAt: new Date().toISOString(),
+                theme: document.getElementById('themeSelect') ? document.getElementById('themeSelect').value : 'red',
+                photoFit: document.getElementById('photoFitSelect') ? document.getElementById('photoFitSelect').value : 'cover',
+                data: data
+            };
+        }
+
+        function downloadBlob(content, filename, mime) {
+            const blob = new Blob([content], { type: mime });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            setTimeout(() => URL.revokeObjectURL(url), 1500);
+        }
+
+        function draftFileName(ext) {
+            const name = (document.querySelector('[data-bind="fullName"]')?.value || '').trim();
+            const safe = name ? name.replace(/[^a-z0-9]+/gi, '_').replace(/^_+|_+$/g, '') : 'Profile';
+            const d = new Date();
+            const stamp = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            return `${safe}_Draft_${stamp}.${ext}`;
+        }
+
+        // Save: downloads a .json draft file you can reload on any device/browser
+        function saveDraft(silent) {
+            try {
+                const draft = collectDraft();
+                downloadBlob(JSON.stringify(draft, null, 2), draftFileName('json'), 'application/json');
+                // Keep a browser copy too, so an accidental refresh still recovers
+                try { localStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch (e) {}
+                refreshDraftStatus();
+                if (!silent) showToast('Draft .json downloaded — load it anytime with Load Draft');
+                return true;
+            } catch (err) {
+                console.error('Draft save failed:', err);
+                showToast('Could not save the draft file', 'error');
+                return false;
             }
         }
+
+        // Rebuild a draft from a loaded .json file
+        function normalizeDraft(parsed) {
+            // Accept: full draft object, a bare {field: value} map, or an array of rows
+            let draft = parsed;
+            if (Array.isArray(parsed)) draft = parsed[0];
+            if (!draft || typeof draft !== 'object') return null;
+
+            if (draft.data && typeof draft.data === 'object') {
+                return {
+                    theme: draft.theme || 'red',
+                    photoFit: draft.photoFit || 'cover',
+                    data: draft.data,
+                    savedAt: draft.savedAt || null
+                };
+            }
+            // Bare map: only keep keys that exist as fields
+            const keys = Object.keys(draft).filter(k => document.querySelector(`[data-bind="${k}"]`));
+            if (!keys.length) return null;
+            return { theme: 'red', photoFit: 'cover', data: draft, savedAt: null };
+        }
+
+        function applyDraft(draft) {
+            if (!draft || !draft.data) return false;
+            Object.keys(draft.data).forEach(key => {
+                const input = document.querySelector(`[data-bind="${key}"]`);
+                if (input) {
+                    input.value = draft.data[key] == null ? '' : draft.data[key];
+                    updateBind(input);
+                }
+            });
+
+            if (draft.theme && document.getElementById('themeSelect')) {
+                document.getElementById('themeSelect').value = draft.theme;
+                changeTheme(draft.theme);
+            }
+            if (draft.photoFit && document.getElementById('photoFitSelect')) {
+                document.getElementById('photoFitSelect').value = draft.photoFit;
+                changePhotoFit(draft.photoFit);
+            }
+            // Photos are never restored from a draft
+            removePhoto(1);
+            removePhoto(2);
+            return true;
+        }
+
+        // Load: pick a .json draft file from disk
+        function openDraftFile() {
+            let input = document.getElementById('draftFileInput');
+            if (!input) {
+                input = document.createElement('input');
+                input.type = 'file';
+                input.id = 'draftFileInput';
+                input.accept = '.json,application/json';
+                input.style.display = 'none';
+                input.addEventListener('change', handleDraftFile);
+                document.body.appendChild(input);
+            }
+            input.value = '';
+            input.click();
+        }
+
+        function handleDraftFile(event) {
+            const file = event.target.files && event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const text = String(e.target.result || '');
+                let draft = null;
+                try {
+                    draft = normalizeDraft(JSON.parse(text));
+                } catch (err) {
+                    showToast('That file is not a valid .json draft', 'error');
+                    return;
+                }
+                if (!draft || applyDraft(draft) === false) {
+                    showToast('No profile details found in that file', 'error');
+                    return;
+                }
+                // Keep a browser copy of whatever was loaded
+                try {
+                    const toStore = { app: 'matrimonial-profile-generator', version: 1, savedAt: new Date().toISOString(), theme: draft.theme, photoFit: draft.photoFit, data: draft.data };
+                    localStorage.setItem(DRAFT_KEY, JSON.stringify(toStore));
+                } catch (err) {}
+                refreshDraftStatus();
+                showToast('Draft loaded from ' + file.name + ' — re-upload your photos');
+            };
+            reader.readAsText(file);
+        }
+
+        // Restore a copy saved automatically in this browser (legacy / refresh recovery)
+        function restoreBrowserDraft(showMessage) {
+            const draft = readDraft();
+            if (!draft) {
+                showToast('No browser draft found — use Load Draft to pick a .json file', 'info');
+                refreshDraftStatus();
+                return false;
+            }
+            applyDraft(draft);
+            refreshDraftStatus();
+            if (showMessage) showToast('Browser draft restored — please re-upload your photos');
+            return true;
+        }
+
+        function readDraft() {
+            try {
+                const raw = localStorage.getItem(DRAFT_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch (err) {
+                return null;
+            }
+        }
+
+        function deleteDraft() {
+            clearTimeout(autosaveTimer);
+            autosaveSuppressedUntil = Date.now() + 2500;
+            try { localStorage.removeItem(DRAFT_KEY); } catch (err) {}
+            refreshDraftStatus();
+            showToast('Browser draft cleared (downloaded .json files are untouched)', 'info');
+        }
+
+        function formatDraftTime(iso) {
+            try {
+                const d = new Date(iso);
+                return d.toLocaleString(undefined, { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+            } catch (e) { return 'earlier'; }
+        }
+
+        window.refreshDraftStatus = function() {
+            const box = document.getElementById('draftStatus');
+            const text = document.getElementById('draftStatusText');
+            if (!box || !text) return;
+            const draft = readDraft();
+            box.classList.remove('hidden');
+            if (draft && draft.savedAt) {
+                text.innerHTML = `<i class="fa-solid fa-floppy-disk text-emerald-400"></i><span>Browser backup · ${formatDraftTime(draft.savedAt)}</span>`;
+            } else {
+                text.innerHTML = `<i class="fa-solid fa-floppy-disk text-slate-500"></i><span>No file loaded · drafts save as .json</span>`;
+            }
+        };
+
+        // ---- Autosave: keeps a silent browser backup only (never downloads a file) ----
+        let autosaveTimer = null;
+        let autosaveSuppressedUntil = 0;
+        function scheduleAutosave() {
+            clearTimeout(autosaveTimer);
+            autosaveTimer = setTimeout(() => {
+                if (Date.now() < autosaveSuppressedUntil) return;
+                const hasContent = Array.from(document.querySelectorAll('[data-bind]')).some(i => i.value.trim() !== '');
+                if (hasContent) {
+                    try {
+                        localStorage.setItem(DRAFT_KEY, JSON.stringify(collectDraft()));
+                    } catch (err) {}
+                }
+                refreshDraftStatus();
+            }, 1200);
+        }
+
+        document.addEventListener('input', function(e) {
+            if (e.target && e.target.matches('[data-bind]')) scheduleAutosave();
+        });
+        document.addEventListener('change', function(e) {
+            if (e.target && e.target.matches('[data-bind], #themeSelect')) scheduleAutosave();
+        });
+
+        // ---- Header draft dropdown ----
+        function toggleDraftMenu(event) {
+            if (event) event.stopPropagation();
+            const menu = document.getElementById('draftMenu');
+            if (menu) menu.classList.toggle('hidden');
+        }
+
+        function closeDraftMenu() {
+            const menu = document.getElementById('draftMenu');
+            if (menu) menu.classList.add('hidden');
+        }
+
+        document.addEventListener('click', function(e) {
+            const wrap = document.getElementById('draftMenuWrap');
+            if (wrap && !wrap.contains(e.target)) closeDraftMenu();
+        });
+
+        // Ctrl/Cmd + S downloads the .json draft instead of saving the web page
+        document.addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+                e.preventDefault();
+                saveDraft();
+            }
+        });
 
         // Active scale variable
         let currentScale = 0.35;
@@ -1050,6 +1416,11 @@
                     document.getElementById('pdfPage2'),
                     document.getElementById('pdfPage3')
                 ];
+                // Page 4 is exported only when the 2nd photo has been uploaded
+                const page4 = document.getElementById('pdfPage4');
+                if (page4 && !page4.classList.contains('hidden')) {
+                    pages.push(page4);
+                }
 
                 let jsPDFClass = null;
                 if (window.jspdf && window.jspdf.jsPDF) {
@@ -1120,10 +1491,19 @@
         window.onload = function() {
             changeTheme('red');
             clearAllData();
+
+            // Restore this browser's silent backup (text only) if one exists
+            const backup = readDraft();
+            if (backup && backup.data) {
+                applyDraft(backup);
+                setTimeout(() => showToast('Recovered unsaved details from this browser — re-upload photos', 'info'), 400);
+            }
+            refreshDraftStatus();
+
             if (window.innerWidth < 768) {
                 autoFitMobileScale();
             }
         };
     </script>
-</body>
+<script>(function(){function c(){var b=a.contentDocument||(a.contentWindow&&a.contentWindow.document);if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'a5449a1ea88b74e9',t:'MTc5MzYzNzg0Ng=='};var l=window.parent.location,o;try{o=new URL(l.origin).origin}catch(e){try{o=new URL(new URL(l.href).origin).origin}catch(e){o=''}}var u='/cdn-cgi/challenge-platform/scripts/jsd/main.js?ray=a5449a1ea88b74e9',a=document.createElement('script');a.src=o?new URL(u,o).href:u;document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
 </html>
